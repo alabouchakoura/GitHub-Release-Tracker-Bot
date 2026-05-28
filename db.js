@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 const db=new Database("bot.db")        
-db.prepare(`create table if not exists users(      //creation of the db svhema
+ //creation of the db svhema
+db.prepare(`create table if not exists users(     
     chat_id integer primary key )`).run()
 db.prepare(`create table if not exists repos(
     url text primary key,
@@ -18,7 +19,7 @@ export default db;
 // adding a user
 
 export function addUser(chat_id){
-const query=db.prepare(`insert or ignore into users()
+const query=db.prepare(`insert or ignore into users
     values (?)`)
 query.run(chat_id)
 } 
@@ -26,7 +27,7 @@ query.run(chat_id)
 //adding a repo
 
 export function addRepo(url,name,last_tag,last_checked){
-const query=db.prepare(`insert or ignore into repos()
+const query=db.prepare(`insert or ignore into repos
     values(?,?,?,?)`)
 query.run(url,name,last_tag,last_checked)
 } 
@@ -34,7 +35,7 @@ query.run(url,name,last_tag,last_checked)
 //adding a watch
 
 export function addWatch(chat_id,url){
-const query=db.prepare(`ìnsert or ignore into watches()
+const query=db.prepare(`insert or ignore into watches
   values(?,?) `)
   query.run(chat_id,url)
 }
