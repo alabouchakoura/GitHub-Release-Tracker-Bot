@@ -42,6 +42,12 @@ const query=db.prepare(`insert or ignore into watches
 
 //removing a watch
 
+export function removeAllWatches(chat_id){
+const query=db.prepare(`delete from watches
+     where chat_id=?`)
+query.run(chat_id)
+}
+
 export function removeWatch(chat_id,url){
 const query=db.prepare(`delete from watches
      where chat_id=? and url=?`)
