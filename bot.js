@@ -10,10 +10,12 @@ const token=process.env.BOT_TOKEN
 
 const bot=new TelegramBot(token,{polling:true})
 
-bot.onText(/\/start/,(msg)=>{
+let userState={};
+
+bot.onText(/^\/start$/i,(msg)=>{
 const chatId=msg.chat.id;
-    try {
-      addUser(chatId)
+try {
+addUser(chatId)
       bot.sendMessage(chatId,`this is a bot that monitors github repos for new releases and notify you the moment a new version drops without a github account being required.`)
       bot.sendMessage(chatId,'use the given commandes',{
           reply_markup:{
@@ -25,15 +27,15 @@ const chatId=msg.chat.id;
                         resize_keyboard:true ,
                         one_time_keyboard:true,
                         }
-})   
-    } catch (error) {
-                    bot.sendMessage(chatId,"Sorry,internal error occured")
-                    console.log(error.code)
-    }
+})     
+} catch (error) {
+    bot.sendMessage(chatId,"Sorry internal server error!!")
+    console.error(error.message)
+}
 })
-
-bot.onText(/\/watch/,(msg)=>{
+bot.onText(/^\/watch$/i,(msg)=>{
 const chatId=msg.chat.id
+userState[chatId]="awaiting_watch_url"
     try {
     bot.sendMessage(chatId,"send me the repo url",{
        reply_markup:{
@@ -43,30 +45,14 @@ const chatId=msg.chat.id
                     resize_keyboard:true,
                     one_time_keyboard:true
                    }
-}) 
-bot.on('message',(msg)=>{
-                        if(useRegex(msg.text)===false && msg.text !=="/back"
- && msg.text !=="/watch" && msg.text !=="/remove" && msg.text !=="/list" ){
-                  bot.sendMessage(chatId,`incompatible repo link format try again`)
-}
-else{
-    if(msg.text!=="/back" && msg.text !=="/watch" && msg.text !=="/remove"
-        && msg.text !=="/list" ){
-            let last_tag="??"
-            let last_checked="??"
-            addRepo(msg.text,getRepoName(msg.text),last_tag,last_checked)
-            addWatch(chatId,msg.text)
-            bot.sendMessage(chatId,"done! i am watching this repo")
-        }
-}
 })
     } catch (error) {
-            console.log(error.code)
-            bot.sendMessage(chatId,"Sorry!,internal error occured")
+             bot.sendMessage(chatId,"Sorry internal server error!!")
+    console.error(error.message)
     }
 })
 
-bot.onText(/\/list/,(msg)=>{
+bot.onText(/^\/list$/i,(msg)=>{
 const chatId=msg.chat.id
 try {
 bot.sendMessage(chatId,"List of your watched repos:",{
@@ -97,15 +83,15 @@ bot.sendMessage(chatId,str1,{
 }
 
 } catch (error) {
-    console.log(error.code)
-    bot.sendMessage("sorry,internal error occured")
+    bot.sendMessage(chatId,"Sorry internal server error!!")
+    console.error(error.message)
 }
 })
 
 bot.onText(/^\/remove$/i,(msg)=>{
-try {
-     const chatId=msg.chat.id
-     bot.sendMessage(chatId,"select from below 1",{
+const chatId=msg.chat.id
+    try {
+     bot.sendMessage(chatId,"select from below",{
          reply_markup:{
                       keyboard:[
         ["/remove_all"],
@@ -115,16 +101,17 @@ try {
 resize_keyboard:true ,
 one_time_keyboard:true
         }
-    })
-bot.on('message',"send me the repo url:")   
+    })  
     } catch (error) {
-        
+        bot.sendMessage(chatId,"Sorry internal server error!!")
+    console.error(error.message)
     }
 })
 
-bot.onText(/\/back/,(msg)=>{
-const chatId=msg.chat.id
-bot.sendMessage(chatId,"select from below 2",{
+bot.onText(/^\/back$/i,(msg)=>{
+    const chatId=msg.chat.id
+try {
+        bot.sendMessage(chatId,"select from below",{
 reply_markup:{
 keyboard:[
         ["/watch"],
@@ -135,8 +122,12 @@ resize_keyboard:true ,
 one_time_keyboard:true
         }
     })
+    } catch (error) {
+         bot.sendMessage(chatId,"Sorry internal server error!!")
+    console.error(error.message)
+    }
 })
-bot.onText(/\/remove_all/,(msg)=>{
+bot.onText(/^\/remove_all$/i,(msg)=>{
 const chatId=msg.chat.id
 try {
     const res=getWatchedById(chatId)
@@ -148,12 +139,13 @@ try {
         bot.sendMessage(chatId,"You have no watched repos!")
     }
 } catch (error) {
-    console.log(error.code)
-    bot.sendMessage(chatId,"Sorry, internal server error happened")
+    bot.sendMessage(chatId,"Sorry internal server error!!")
+    console.error(error.message)
 }
 })
 bot.onText(/^\/remove_by_url$/i,(msg)=>{
 const chatId=msg.chat.id
+userState[chatId]="awaiting_remove_url"
 try {
 bot.sendMessage(chatId,"send me the repo's url",{
     reply_markup:{
@@ -164,19 +156,47 @@ bot.sendMessage(chatId,"send me the repo's url",{
         one_time_keyboard:true
     }
 })
-bot.on('message',(msg)=>{
-if(useRegex(msg.text===false) && msg.text !=="/back"){
- bot.sendMessage(chatId,"incompatible repo link format try again")
-}
-else{
-       if(msg.text !=="/back"){
-          removeWatch(chatId,msg.text)
-          bot.sendMessage(chatId,"Repo was deleted")  
-}
+} catch (error) {
+bot.sendMessage(chatId,"Sorry internal server error!!")
+    console.error(error.message)
 }
 })
-} catch (error) {
-    
+
+bot.on("message",(msg)=>{
+    const chatId=msg.chat.id
+try {
+ if(!msg.text) return
+const state=userState[chatId]
+if(state==="awaiting_watch_url"){
+if(useRegex(msg.text)===false && msg.text.startsWith("/")===false){
+     bot.sendMessage(chatId,`incompatible repo link format try again`)
 }
+else{
+    if(msg.text.startsWith("/")===false){
+            let last_tag=null
+            let last_checked=null
+            addRepo(msg.text,getRepoName(msg.text),last_tag,last_checked)
+            addWatch(chatId,msg.text)
+            bot.sendMessage(chatId,"done! i am watching this repo")
+            delete userState[chatId]
+        }
+}
+}
+if(state==="awaiting_remove_url"){
+if(useRegex(msg.text)===false && msg.text.startsWith("/")===false){
+     bot.sendMessage(chatId,`incompatible repo link format try again`)
+}
+else{
+    if(msg.text.startsWith("/")===false){
+            removeWatch(chatId,msg.text)
+            bot.sendMessage(chatId,"done! i removed that repo")
+            delete userState[chatId]
+        }
+}
+}       
+} catch (error) {
+        bot.sendMessage(chatId,"Sorry internal server error!!")
+    console.error(error.message)
+    }
 })
 console.log("the bot is running")
