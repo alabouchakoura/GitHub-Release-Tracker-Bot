@@ -4,7 +4,9 @@ import { addUser ,addRepo,addWatch,removeWatch,
 getWatchedById,removeAllWatches
 } from "./db.js";
 
-import {useRegex,getRepoName} from "./utilities.js"
+import {useRegex,getRepoName,getLatestVersion,verifyVersion} from "./utilities.js"
+
+import cron from "node-cron"
 
 const token=process.env.BOT_TOKEN
 
@@ -65,7 +67,7 @@ bot.sendMessage(chatId,"List of your watched repos:",{
                    }
 })
 const res=getWatchedById(chatId)
-console.log(res) /* [{name:'Fret-Dz',last_tag:'??'},{name:'Telegram-bot',last_tag:null}] */
+// console.log(res) /* [{name:'Fret-Dz',last_tag:'??'},{name:'Telegram-bot',last_tag:null}] */
 if (res.length!==0) {
  let str1=""
 let str2=""
@@ -103,7 +105,7 @@ one_time_keyboard:true
         }
     })  
     } catch (error) {
-        bot.sendMessage(chatId,"Sorry internal server error!!")
+        bot.sendMessage(chatId,"Sorry internal server error!!1")
     console.error(error.message)
     }
 })
@@ -162,41 +164,57 @@ bot.sendMessage(chatId,"Sorry internal server error!!")
 }
 })
 
-bot.on("message",(msg)=>{
+bot.on("message",async (msg)=>{
     const chatId=msg.chat.id
 try {
  if(!msg.text) return
 const state=userState[chatId]
 if(state==="awaiting_watch_url"){
 if(useRegex(msg.text)===false && msg.text.startsWith("/")===false){
-     bot.sendMessage(chatId,`incompatible repo link format try again`)
+    await bot.sendMessage(chatId,`incompatible repo link format try again`)
 }
 else{
     if(msg.text.startsWith("/")===false){
-            let last_tag=null
-            let last_checked=null
+            let last_tag=await getLatestVersion(msg.text)
+            let last_checked=Math.floor(new Date()/1000)
             addRepo(msg.text,getRepoName(msg.text),last_tag,last_checked)
             addWatch(chatId,msg.text)
-            bot.sendMessage(chatId,"done! i am watching this repo")
+          await  bot.sendMessage(chatId,"done! i am watching this repo")
             delete userState[chatId]
         }
 }
 }
 if(state==="awaiting_remove_url"){
 if(useRegex(msg.text)===false && msg.text.startsWith("/")===false){
-     bot.sendMessage(chatId,`incompatible repo link format try again`)
+    await bot.sendMessage(chatId,`incompatible repo link format try again`)
 }
 else{
     if(msg.text.startsWith("/")===false){
             removeWatch(chatId,msg.text)
-            bot.sendMessage(chatId,"done! i removed that repo")
+           await bot.sendMessage(chatId,"done! i removed that repo")
             delete userState[chatId]
         }
 }
 }       
 } catch (error) {
-        bot.sendMessage(chatId,"Sorry internal server error!!")
+      await  bot.sendMessage(chatId,"Sorry internal server error!!2")
     console.error(error.message)
     }
 })
+
+cron.schedule('* */6 * * *',()=>{
+const res=verifyVersion()
+if(res.length>0){
+   for(let i=0;i<res.length;i++){
+       const chatIds=res[i].users
+       const name=res[i].name
+       for(let j=0;j<chatIds.length;j++){
+           bot.sendMessage(chatIds[j],`<b>${name} just dropped a new version!!!</b>`,{
+            parse_mode:"HTML"
+           })
+        }
+    }
+}
+})
+
 console.log("the bot is running")

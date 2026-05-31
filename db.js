@@ -53,7 +53,7 @@ const query=db.prepare(`delete from watches
      where chat_id=? and url=?`)
 query.run(chat_id,url)
 const res=db.prepare(`select * from repos 
-    where url=?`).run(url)
+    where url=?`).get(url)
 if(!res){
 db.prepare(`delete from repos
      where url=?`).run(url)
@@ -64,7 +64,7 @@ db.prepare(`delete from repos
 //updating a repo
 
 export function updateRepo(name,url,last_tag){
-const query=db.prepare(`update repos set name=? last_tag=? where url=?`)
+const query=db.prepare(`update repos set name=?,last_tag=? where url=?`)
 query.run(name,url,last_tag)
 }
 
@@ -84,5 +84,26 @@ export function getAllWatchedRepos(){
 const query=db.prepare(`select repos.name,repos.url,repos.last_tag,
 GROUP_CONCAT(watches.chat_id) as chat_ids from repos
 join watches on repos.url = watches.url group by repos.url;`)
-return query.all();
+return query.all()
 }
+/* example:
+[
+  {
+    "name": "express",
+    "url": "https://github.com/expressjs/express",
+    "last_tag": "v4.19.0",
+    "chat_ids": "111"
+  },
+  {
+    "name": "react",
+    "url": "https://github.com/facebook/react",
+    "last_tag": "v18.3.0",
+    "chat_ids": "111,222,333"
+  },
+  {
+    "name": "vue",
+    "url": "https://github.com/vuejs/vue",
+    "last_tag": "v3.4.0",
+    "chat_ids": "111,222"
+  }
+] */ 
