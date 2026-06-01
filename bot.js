@@ -9,7 +9,7 @@ import {useRegex,getRepoName,getLatestVersion,verifyVersion} from "./utilities.j
 import cron from "node-cron"
 
 import http from "http"
-http.createServer((req, res) => res.end('OK')).listen(process.env.PORT || 8080)
+http.createServer((req, res) => res.end('OK')).listen(process.env.PORT || 8000)
 
 const token=process.env.BOT_TOKEN
 
