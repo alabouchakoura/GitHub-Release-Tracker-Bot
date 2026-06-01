@@ -1,174 +1,170 @@
-# GitHub releases tracker Bot — Architecture
+# GitHub Release Tracker Bot
 
-a telegram bot that monitors github repos for new releases and notifies users the moment a new version drops without a github account being required.
+> A Telegram bot that monitors GitHub repositories for new releases and notifies you instantly when a new version drops—no GitHub account required.
+## 🔗 Try it on Telegram
+[**@aliakutamibot**](https://t.me/aliakutamibot)
+## Features
 
----
+- **Watch Repositories** — Add GitHub repos by URL and get notifications when new releases drop
+- **Watch Management** — View all your watched repos and their latest versions, remove individual watches or all at once
+- **Automatic Monitoring** — Checks every 6 hours for new release tags across all your watched repos
+- **User-Friendly Interface** — Simple Telegram commands with keyboard navigation (no need to type URLs)
+- **Persistent Storage** — All watches and version history stored in a SQLite database
+- **Multi-User Support** — Multiple Telegram users can watch the same repo independently
 
-## What it does
-
-A user tells the bot *"watch this GitHub repo for me."* The bot silently checks it on a schedule. The moment a new release tag appears, it sends a Telegram notification to the user.
-
-```
-User: /watch https://github.com/owner/repo/releases
-                      │
-                      ▼
-         Bot stores the repo URL + current latest tag in DB
-
-[Every 6 hours (we will modify this)]
-                      │
-                      ▼
-         Scraper fetches the releases page
-         → grabs the first (latest) release tag: "2024.04.09"
-                      │
-                      ▼
-         Compare to last known tag in DB: "2024.03.10"
-                      │
-                      ▼
-         Different → notify all watchers on Telegram:
-         "new version was released a new version: 2024.04.09"
-                      │
-                      ▼
-         DB updated: last_tag = "2024.04.09"
-```
-
----
-
-## Database
-
-SQLite — a single `.db` file on disk, no server needed.
-
-### Tables
+## Project Structure
 
 ```
-┌─────────────┐       ┌──────────────────────┐       ┌─────────────────────┐
-│    users    │       │       repos          │       │      watches        │
-│─────────────│       │──────────────────────│       │─────────────────────│
-│ chat_id PK  │       │ url        PK        │       │ chat_id  FK         │
-└─────────────┘       │ name                 │       │ url      FK         │
-                      │ last_tag             │       │ PRIMARY KEY(both)   │
-                      │ last_checked (Unix)  │       └─────────────────────┘
-                      └──────────────────────┘
+
+├── bot.js                  # Main entry point; handles all Telegram commands and event listeners
+├── db.js                   # Database schema and CRUD operations (SQLite)
+├── utilities.js            # Helper functions (URL validation, GitHub API calls, version checks)
+├── bot.db                  # SQLite database file (created automatically on first run)
+├── .env                    # Environment variables (BOT_TOKEN)
+├── package.json            # Dependencies and build scripts
+├── test.js                 # Test file
+└── README.md               # Documentation file
 ```
 
-### `users`
+### Key Modules
 
-Stores every Telegram chat ID that has interacted with the bot.
+**bot.js**
+- Command handlers for `/start`, `/watch`, `/list`, `/remove`, `/remove_all`, `/remove_by_url`, `/back`
+- Message listener for user input during workflows
+- Telegram polling setup
+- Scheduled cron job (every 6 hours) that notifies users of new releases
 
-| Column    | Type    | Notes                  |
-|-----------|---------|------------------------|
-| `chat_id` | INTEGER | Primary key, from Telegram |
+**db.js**
+- Creates and manages three tables: `users`, `repos`, and `watches`
+- Exports functions: `addUser`, `addRepo`, `addWatch`, `removeWatch`, `removeAllWatches`, `getWatchedById`, `getAllWatchedRepos`, `updateRepo`
 
-### `repos`
+**utilities.js**
+- `useRegex()` — Validates GitHub URLs
+- `getRepoName()` — Extracts repo name from URL
+- `getOwnerName()` — Extracts owner name from URL
+- `getLatestVersion()` — Fetches latest release tag from GitHub API
+- `verifyVersion()` — Returns all watched repos
 
-One row per unique GitHub releases URL being tracked.
+## Prerequisites
 
-| Column         | Type    | Notes                                      |
-|----------------|---------|--------------------------------------------|
-| `url`          | TEXT    | Primary key — e.g. `https://github.com/user/repo/releases` |
-| `name`         | TEXT    | Repo name, extracted from the page         |
-| `last_tag`     | TEXT    | Latest release tag seen — e.g. `v2.3.1`   |
-| `last_checked` | INTEGER | Unix timestamp of the last scrape          |
+- Node.js (v14 or higher recommended)
+- npm (comes with Node.js)
+- A Telegram account and a bot token from [@BotFather](https://telegram.me/BotFather)
+- Internet connection (to access GitHub API and Telegram)
 
-### `watches`
+## Installation
 
-Junction table linking users to repos. One user can watch many repos; one repo can be watched by many users.
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd Telegram-bot
+   ```
 
-| Column    | Type    | Notes                          |
-|-----------|---------|--------------------------------|
-| `chat_id` | INTEGER | Foreign key → `users.chat_id`  |
-| `url`     | TEXT    | Foreign key → `repos.url`      |
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-Primary key is the combination of both columns — no duplicate watches.
+3. **Create a `.env` file** in the root directory and add your bot token:
+   ```bash
+   BOT_TOKEN=your_token_here
+   ```
+   To get a bot token:
+   - Open Telegram and message [@BotFather](https://telegram.me/BotFather)
+   - Type `/newbot` and follow the prompts
+   - Copy the token and paste it into `.env`
 
----
+4. **Start the bot**
+   ```bash
+   npm run dev      # Development (with auto-reload via nodemon)
+   npm start        # Production (node bot.js)
+   ```
 
-## Data Flow
+The bot is running once you see: `the bot is running`
 
-### Adding a Watch
+## Environment Variables
 
-```
-/watch <url>
-    │
-    ▼
-bot.js receives command
-    │
-    ├── addUser(chat_id)         → INSERT OR IGNORE into users
-    ├── addRepo(url)             → INSERT OR IGNORE into repos (last_tag = null)
-    └── addWatch(chat_id, url)  → INSERT OR IGNORE into watches
-```
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `BOT_TOKEN` | Telegram bot token from @BotFather | Yes |
 
-### Scheduled Check (every 6 hours)
+## Running the Bot
 
-```
-scheduler fires
-    │
-    ▼
-getAllWatchedRepos()
-→ SELECT repos + GROUP_CONCAT(chat_ids) for each repo
-    │
-    ▼
-for each repo:
-    │
-    ├── scraper fetches GitHub releases page
-    │   └── grabs the first tag shown (= latest release)
-    │
-    ├── compare new_tag vs last_tag in DB
-    │
-    ├── if CHANGED:
-    │       ├── notify each watching chat_id
-    │       └── updateRepo(url, name, new_tag)
-    │
-    └── if SAME:
-            └── updateRepo(url, name, new_tag)  ← updates last_checked only
+**Development mode** (auto-reloads on file changes):
+```bash
+npm run dev
 ```
 
-### Removing a Watch
-
-```
-/remove <url>
-    │
-    ▼
-removeWatch(chat_id, url)
-→ DELETE FROM watches WHERE chat_id = ? AND url = ?
+**Production mode** (or simple run):
+```bash
+node bot.js
 ```
 
-If no users are left watching a repo, it stays in `repos` but will no longer trigger notifications (no watchers to notify). Optionally, it can be cleaned up.
-
----
-
-## Modules Overview
-
-| File | Responsibility |
-|------|----------------|
-| `bot.js` | Entry point. Handles Telegram commands (`/watch`, `/list`, `/remove`, `/check`). Starts the scheduler. |
-| `db.js` | All database logic — table creation, reads, writes. |
-| `scraper.js` | Fetches a GitHub releases page and extracts the latest release tag and repo name. |
-| `notifier.js` | Formats and sends Telegram messages when a new release is detected. |
-| `scheduler.js` | Cron job that runs every 6 hours — orchestrates scraping, comparison, notification, and DB updates. |
-
----
-
-## Notification Format
-
-When a new release is detected, each watching user receives:
-
-```
-🚀 New release: yt-dlp
-
-Version: 2024.04.09
-Previous: 2024.03.10
-
-🔗 View Release
-```
-
----
+The bot uses Telegram polling, so it runs continuously after starting.
 
 ## Bot Commands
 
 | Command | Description |
 |---------|-------------|
-| `/start` | Registers the user, shows available commands |
-| `/watch <url>` | Adds a GitHub releases URL to the user's watchlist |
-| `/list` | Shows all repos the user is currently watching and their last known tag |
-| `/remove <url>` | Removes a repo from the user's watchlist |
-| `/check <url>` | One-time manual check — returns the current latest release immediately |
+| `/start` | Register with the bot and view available commands |
+| `/watch` | Start watching a GitHub repo (bot asks for repo URL) |
+| `/list` | View all repos you're currently watching and their latest release tags |
+| `/remove` | Open removal menu to remove specific repos or all repos |
+| `/remove_all` | Remove all watched repos at once |
+| `/remove_by_url` | Remove a specific repo by URL |
+| `/back` | Return to the main menu from any submenu |
+
+## Scheduled Tasks
+
+The bot runs a scheduled task every 6 hours:
+
+```
+Cron Schedule: '* */6 * * *' (every 6 hours)
+```
+
+This task:
+1. Fetches all watched repos for all users
+2. Checks GitHub API for the latest release tag
+3. Sends Telegram notifications to users who are watching repos with new releases
+
+## Database Schema
+
+SQLite database with three tables:
+
+**users**
+- `chat_id` (INTEGER, PRIMARY KEY) — Telegram chat ID
+
+**repos**
+- `url` (TEXT, PRIMARY KEY) — GitHub repo URL
+- `name` (TEXT) — Repository name
+- `last_tag` (TEXT) — Latest known release tag
+- `last_checked` (INTEGER) — Unix timestamp of last check
+
+**watches** (Junction table)
+- `chat_id` (INTEGER, FOREIGN KEY) — User's Telegram chat ID
+- `url` (TEXT, FOREIGN KEY) — Repo URL
+- PRIMARY KEY on both columns — prevents duplicate watches
+
+## Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `node-telegram-bot-api` | ^0.67.0 | Telegram bot client |
+| `better-sqlite3` | ^12.10.0 | SQLite database driver |
+| `axios` | ^1.16.1 | HTTP client for GitHub API requests |
+| `node-cron` | ^4.2.1 | Scheduled task runner |
+| `dotenv` | ^17.4.2 | Environment variable loader |
+| `nodemon` | ^3.1.14 | Auto-reload for development |
+
+## Known Limitations
+- Only supports public GitHub repositories
+- Requires active internet connection for GitHub API calls
+- Telegram polling (vs webhooks) means slightly higher latency and server load
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m 'Add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a Pull Request

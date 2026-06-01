@@ -31,13 +31,13 @@ let ids=[]
 for (let i=0;i<res.length;i++) {
 const {name,url,chat_ids,last_tag}=res[i]
 //let current_tag=getLatestVersion(url)
-if(/*last_tag!==current_tag*/ true ){
-//updateRepo(name,url,current_tag)
+if(last_tag!==current_tag ){
+updateRepo(name,url,current_tag)
 ids.push({
 name:name,
 users:chat_ids.split(',').map(Number)
 })
 }
 }
-return ids /*[{name:'express',users:['111']},{name:'react',users:['111',222','333']},{name:'vue',users:['111','222']}]*/
+return ids /*[{name:'express',users:[111]},{name:'react',users:[111,222,333]},{name:'vue',users:[111,222]}]*/
 }
