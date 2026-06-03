@@ -11,6 +11,16 @@ import cron from "node-cron"
 import http from "http"
 http.createServer((req, res) => res.end('OK')).listen(process.env.PORT || 8000)
 
+import https from 'https'
+
+setInterval(() => {
+  https.get('https://aliakutamibot.azurewebsites.net', (res) => {
+    console.log('Self-ping:', res.statusCode);
+  }).on('error', (e) => {
+    console.error('Self-ping failed:', e.message);
+  });
+}, 10 * 60 * 1000);
+
 const token=process.env.BOT_TOKEN
 
 const bot=new TelegramBot(token,{polling:true})
