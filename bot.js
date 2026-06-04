@@ -19,7 +19,7 @@ setInterval(() => {
   }).on('error', (e) => {
     console.error('Self-ping failed:', e.message);
   });
-}, 10 * 60 * 1000);
+}, 1* 60 * 1000);
 
 const token=process.env.BOT_TOKEN
 
