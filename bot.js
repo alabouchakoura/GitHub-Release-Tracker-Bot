@@ -14,7 +14,7 @@ http.createServer((req, res) => res.end('OK')).listen(process.env.PORT)
 import https from 'https'
 
 setInterval(() => {
-  https.get('aliakutamibot-fxgweyhkdbc8e5an.francecentral-01.azurewebsites.net', (res) => {
+  https.get('https://aliakutamibot-fxgweyhkdbc8e5an.francecentral-01.azurewebsites.net', (res) => {
     console.log('Self-ping:', res.statusCode);
   }).on('error', (e) => {
     console.error('Self-ping failed:', e.message);
